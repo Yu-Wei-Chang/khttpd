@@ -8,6 +8,7 @@
 #include "http_server.h"
 
 #define CRLF "\r\n"
+#define FIB_URL_PATH "/fib/"
 
 #define HTTP_RESPONSE_200_DUMMY                               \
     ""                                                        \
@@ -76,8 +77,21 @@ static int http_server_send(struct socket *sock, const char *buf, size_t size)
 static int http_server_response(struct http_request *request, int keep_alive)
 {
     char *response;
+    char *match = strstr(request->request_url, FIB_URL_PATH);
 
     pr_info("requested_url = %s\n", request->request_url);
+
+    if (match) {
+        long long fib_seq_idx;
+        match += strlen(FIB_URL_PATH);
+        if (kstrtoll(match, 10, &fib_seq_idx) == 0) {
+            /* Here we got the Fibonacci sequence which user want to calculate.
+             */
+            pr_info("fib_seq_idx [%lld]\n", fib_seq_idx);
+        }
+    }
+
+
     if (request->method != HTTP_GET)
         response = keep_alive ? HTTP_RESPONSE_501_KEEPALIVE : HTTP_RESPONSE_501;
     else
