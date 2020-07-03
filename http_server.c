@@ -4,6 +4,7 @@
 #include <linux/sched/signal.h>
 #include <linux/tcp.h>
 
+#include "fib.h"
 #include "http_parser.h"
 #include "http_server.h"
 
@@ -85,9 +86,15 @@ static int http_server_response(struct http_request *request, int keep_alive)
         long long fib_seq_idx;
         match += strlen(FIB_URL_PATH);
         if (kstrtoll(match, 10, &fib_seq_idx) == 0) {
+            struct BigN fib_seq;
             /* Here we got the Fibonacci sequence which user want to calculate.
              */
-            pr_info("fib_seq_idx [%lld]\n", fib_seq_idx);
+            if (fib_seq_idx >= 0) {
+                char fib_str_buf[LEN_BN_STR] = "";
+                fib_seq = fib_sequence_fd(fib_seq_idx);
+                print_BigN_string(fib_seq, fib_str_buf, sizeof(fib_str_buf));
+                pr_info("Fib [%s]\n", fib_str_buf);
+            }
         }
     }
 

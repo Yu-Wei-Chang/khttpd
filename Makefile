@@ -2,11 +2,13 @@ KDIR=/lib/modules/$(shell uname -r)/build
 
 CFLAGS_user = -std=gnu11 -Wall -Wextra -Werror
 LDFLAGS_user = -lpthread
+ccflags-y := -std=gnu99
 
 obj-m += khttpd.o
 khttpd-objs := \
 	http_parser.o \
 	http_server.o \
+	fib.o \
 	main.o
 
 GIT_HOOKS := .git/hooks/applied
