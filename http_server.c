@@ -11,6 +11,11 @@
 #define CRLF "\r\n"
 #define FIB_URL_PATH "/fib/"
 
+#define HTTP_RESPONSE_200_TEMPLATE                        \
+    ""                                                    \
+    "HTTP/1.1 200 OK" CRLF "Server: " KBUILD_MODNAME CRLF \
+    "Content-Type: text/plain" CRLF "Content-Length: "
+
 #define HTTP_RESPONSE_200_DUMMY                               \
     ""                                                        \
     "HTTP/1.1 200 OK" CRLF "Server: " KBUILD_MODNAME CRLF     \
@@ -31,6 +36,18 @@
     "HTTP/1.1 501 Not Implemented" CRLF "Server: " KBUILD_MODNAME CRLF \
     "Content-Type: text/plain" CRLF "Content-Length: 21" CRLF          \
     "Connection: KeepAlive" CRLF CRLF "501 Not Implemented" CRLF
+#define HTTP_RESPONSE_200_FIB_INVALID                         \
+    ""                                                        \
+    "HTTP/1.1 200 OK" CRLF "Server: " KBUILD_MODNAME CRLF     \
+    "Content-Type: text/plain" CRLF "Content-Length: 55" CRLF \
+    "Connection: Close" CRLF CRLF                             \
+    "Index of Fibonacci sequence should be a postive number!" CRLF
+#define HTTP_RESPONSE_200_KEEPALIVE_FIB_INVALID               \
+    ""                                                        \
+    "HTTP/1.1 200 OK" CRLF "Server: " KBUILD_MODNAME CRLF     \
+    "Content-Type: text/plain" CRLF "Content-Length: 55" CRLF \
+    "Connection: Keep-Alive" CRLF CRLF                        \
+    "Index of Fibonacci sequence should be a postive number!" CRLF
 
 #define RECV_BUFFER_SIZE 4096
 
@@ -77,33 +94,61 @@ static int http_server_send(struct socket *sock, const char *buf, size_t size)
 
 static int http_server_response(struct http_request *request, int keep_alive)
 {
-    char *response;
+    char *response = NULL;
+    char fib_http_resp[256] = "";
     char *match = strstr(request->request_url, FIB_URL_PATH);
 
     pr_info("requested_url = %s\n", request->request_url);
 
-    if (match) {
-        long long fib_seq_idx;
-        match += strlen(FIB_URL_PATH);
-        if (kstrtoll(match, 10, &fib_seq_idx) == 0) {
-            struct BigN fib_seq;
-            /* Here we got the Fibonacci sequence which user want to calculate.
-             */
-            if (fib_seq_idx >= 0) {
-                char fib_str_buf[LEN_BN_STR] = "";
-                fib_seq = fib_sequence_fd(fib_seq_idx);
-                print_BigN_string(fib_seq, fib_str_buf, sizeof(fib_str_buf));
-                pr_info("Fib [%s]\n", fib_str_buf);
+    if (request->method != HTTP_GET)
+        response = keep_alive ? HTTP_RESPONSE_501_KEEPALIVE : HTTP_RESPONSE_501;
+    else {
+        if (match) {
+            long long fib_seq_idx;
+            match += strlen(FIB_URL_PATH);
+            if (kstrtoll(match, 10, &fib_seq_idx) == 0) {
+                /* Here we got the Fibonacci sequence which user want to
+                 * calculate.
+                 */
+                if (fib_seq_idx >= 0) {
+                    struct BigN fib_seq;
+                    char fib_str_buf[LEN_BN_STR] = "";
+                    char content[64] = "";
+                    char content_len[8] = "";
+
+                    fib_seq = fib_sequence_fd(fib_seq_idx);
+                    print_BigN_string(fib_seq, fib_str_buf,
+                                      sizeof(fib_str_buf));
+
+                    /* Fill conten up */
+                    snprintf(content, sizeof(content), "Fibonacci(%lld) = %s",
+                             fib_seq_idx, fib_str_buf);
+                    /* Count length of content */
+                    snprintf(content_len, sizeof(content_len), "%zu",
+                             strlen(content));
+                    /* Fill HTTP response up */
+                    snprintf(fib_http_resp, sizeof(fib_http_resp),
+                             "HTTP/1.1 200 OK" CRLF
+                             "Server: " KBUILD_MODNAME CRLF
+                             "Content-Type: text/plain" CRLF
+                             "Content-Length: %s" CRLF
+                             "Connection: %s" CRLF CRLF "%s" CRLF,
+                             content_len, keep_alive ? "Keep-Alive" : "Close",
+                             content);
+                    pr_info("fib_http_resp [%s]\n", fib_http_resp);
+                    response = fib_http_resp;
+                } else {
+                    response = keep_alive
+                                   ? HTTP_RESPONSE_200_KEEPALIVE_FIB_INVALID
+                                   : HTTP_RESPONSE_200_FIB_INVALID;
+                }
             }
+        } else {
+            response = keep_alive ? HTTP_RESPONSE_200_KEEPALIVE_DUMMY
+                                  : HTTP_RESPONSE_200_DUMMY;
         }
     }
 
-
-    if (request->method != HTTP_GET)
-        response = keep_alive ? HTTP_RESPONSE_501_KEEPALIVE : HTTP_RESPONSE_501;
-    else
-        response = keep_alive ? HTTP_RESPONSE_200_KEEPALIVE_DUMMY
-                              : HTTP_RESPONSE_200_DUMMY;
     http_server_send(request->socket, response, strlen(response));
     return 0;
 }
