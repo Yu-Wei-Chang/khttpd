@@ -137,6 +137,10 @@ static int http_server_response(struct http_request *request, int keep_alive)
                                    ? HTTP_RESPONSE_200_KEEPALIVE_FIB_INVALID
                                    : HTTP_RESPONSE_200_FIB_INVALID;
                 }
+            } else {
+                /* Correct handle URL path like "/fib/" */
+                response = keep_alive ? HTTP_RESPONSE_200_KEEPALIVE_DUMMY
+                                      : HTTP_RESPONSE_200_DUMMY;
             }
         } else {
             response = keep_alive ? HTTP_RESPONSE_200_KEEPALIVE_DUMMY
