@@ -11,11 +11,6 @@
 #define CRLF "\r\n"
 #define FIB_URL_PATH "/fib/"
 
-#define HTTP_RESPONSE_200_TEMPLATE                        \
-    ""                                                    \
-    "HTTP/1.1 200 OK" CRLF "Server: " KBUILD_MODNAME CRLF \
-    "Content-Type: text/plain" CRLF "Content-Length: "
-
 #define HTTP_RESPONSE_200_DUMMY                               \
     ""                                                        \
     "HTTP/1.1 200 OK" CRLF "Server: " KBUILD_MODNAME CRLF     \
